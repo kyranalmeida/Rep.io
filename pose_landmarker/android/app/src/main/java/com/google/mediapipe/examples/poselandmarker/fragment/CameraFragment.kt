@@ -31,6 +31,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Camera
 import androidx.camera.core.AspectRatio
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.*
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -47,6 +48,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import android.content.Context
 import com.google.mediapipe.examples.poselandmarker.RotationDetector1
+import java.io.File
+import java.text.SimpleDateFormat
+import com.google.mediapipe.examples.poselandmarker.MainActivity
 
 
 class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
@@ -64,6 +68,8 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private val viewModel: MainViewModel by activityViewModels()
     private var preview: Preview? = null
     private var imageAnalyzer: ImageAnalysis? = null
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var recording: Recording? = null
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var cameraFacing = CameraSelector.LENS_FACING_FRONT/*by me for changing camera*/
@@ -157,6 +163,46 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
         // Attach listeners to UI control widgets
         initBottomSheetControls()
+
+        viewModel.isRecording.observe(viewLifecycleOwner) { isRecording ->
+            if (isRecording) {
+                startRecording()
+            } else {
+                stopRecording()
+            }
+        }
+    }
+
+    private fun startRecording() {
+        val videoCapture = this.videoCapture ?: return
+        
+        val videoFile = File(
+            requireContext().filesDir,
+            "REC_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis()) + ".mp4"
+        )
+        
+        val outputOptions = FileOutputOptions.Builder(videoFile).build()
+
+        recording = videoCapture.output
+            .prepareRecording(requireContext(), outputOptions)
+            .start(ContextCompat.getMainExecutor(requireContext())) { recordEvent ->
+                if (recordEvent is VideoRecordEvent.Finalize) {
+                    if (!recordEvent.hasError()) {
+                        Log.d(TAG, "Video capture succeeded: ${videoFile.absolutePath}")
+                        // Store the path in MainActivity for the session log
+                        MainActivity.setLastVideoPath(videoFile.absolutePath)
+                        // Trigger record set
+                        MainActivity.recordCompletedSet(videoFile.absolutePath)
+                    } else {
+                        Log.e(TAG, "Video capture error: ${recordEvent.error}")
+                    }
+                }
+            }
+    }
+
+    private fun stopRecording() {
+        recording?.stop()
+        recording = null
     }
 
     private fun initBottomSheetControls() {
@@ -346,6 +392,11 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     }
                 }
 
+        val recorder = Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.LOWEST))
+            .build()
+        videoCapture = VideoCapture.withOutput(recorder)
+
         // Must unbind the use-cases before rebinding them
         cameraProvider.unbindAll()
 
@@ -353,7 +404,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             // A variable number of use-cases can be passed here -
             // camera provides access to CameraControl & CameraInfo
             camera = cameraProvider.bindToLifecycle(
-                this, cameraSelector, preview, imageAnalyzer
+                this, cameraSelector, preview, imageAnalyzer, videoCapture
             )
 
             // Attach the viewfinder's surface provider to preview use case

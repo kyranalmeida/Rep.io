@@ -62,6 +62,8 @@ dependencies {
     // Kotlin lang
     implementation 'androidx.core:core-ktx:1.8.0'
 
+    implementation 'androidx.gridlayout:gridlayout:1.0.0'
+
     // App compat and UI things
     implementation 'androidx.appcompat:appcompat:1.5.1'
     implementation 'com.google.android.material:material:1.7.0'
@@ -85,6 +87,9 @@ dependencies {
 
     // CameraX View class
     implementation "androidx.camera:camera-view:$camerax_version"
+
+    // CameraX Video library
+    implementation "androidx.camera:camera-video:$camerax_version"
 
     // WindowManager
     implementation 'androidx.window:window:1.1.0-alpha03'

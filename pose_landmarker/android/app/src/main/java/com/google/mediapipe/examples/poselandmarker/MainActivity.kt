@@ -11,10 +11,12 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.google.mediapipe.examples.poselandmarker.databinding.ActivityMainBinding
+import java.util.concurrent.CopyOnWriteArrayList
 
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
@@ -25,14 +27,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var azimuthDegrees: Float = 0.0f
     private var pitchDegrees: Float = 0.0f
     private var rollDegrees: Float = 0.0f
-//    private var rotation: Int = 0
     private lateinit var rotationTextView: TextView
      var Angle1: Int = 0
      var Angle2: Int = 0
     var HipAngle: Int = 0
     private var rep: Int = 0
     private var RepCount: Int = 0
-    public val MainMenu = MainMenu()
+
+    data class WorkoutSet(val exercise: Int, val reps: Int, val videoPath: String?)
 
     companion object {
         @JvmStatic
@@ -40,6 +42,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         private  var excerise_selection: Int = 0
         private var repCount: Float = 0f
         private var Start: Boolean = false
+        private var lastVideoPath: String? = null
+        private val pendingSets = CopyOnWriteArrayList<WorkoutSet>()
 
         @JvmStatic
         fun setexcerise_selection(value: Int) {
@@ -58,6 +62,31 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         @JvmStatic
         fun getViewSelection(): Int {
             return View_selection
+        }
+
+        @JvmStatic
+        fun getRepCount(): Int {
+            return repCount.toInt()
+        }
+
+        @JvmStatic
+        fun resetRepCount() {
+            repCount = 0f
+        }
+
+        @JvmStatic
+        fun setLastVideoPath(path: String) {
+            lastVideoPath = path
+        }
+
+        @JvmStatic
+        fun getLastVideoPath(): String? {
+            return lastVideoPath
+        }
+
+        @JvmStatic
+        fun clearLastVideoPath() {
+            lastVideoPath = null
         }
         @JvmStatic
         fun setrepCount(value: Float) {
@@ -78,6 +107,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             return Start
         }
 
+        @JvmStatic
+        fun getPendingSets(): List<WorkoutSet> = pendingSets.toList()
+        
+        @JvmStatic
+        fun clearPendingSets() = pendingSets.clear()
+
+        @JvmStatic
+        fun recordCompletedSet(path: String?) {
+            val reps = getRepCount()
+            if (reps > 0) {
+                pendingSets.add(WorkoutSet(getexcerise_selection(), reps, path))
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,12 +140,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         activityMainBinding.navigation.setupWithNavController(navController)
         activityMainBinding.navigation.setOnNavigationItemReselectedListener {
             // Ignore the reselection
+        }
 
+        findViewById<View>(R.id.back_btn).setOnClickListener {
+            showExitDialog()
         }
     }
+
+    private fun showExitDialog() {
+        AlertDialog.Builder(this)
+            .setMessage("Are you sure you want to go back? Your progress would not be saved.")
+            .setPositiveButton("Save Workout") { _, _ ->
+                finish()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        // Stop rotation detection when the app is destroyed
         stopDetection()
     }
 
@@ -130,8 +187,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             if(Start) {
                 if (excerise_selection == 1) {
                     if (View_selection == 1) {
-                        if (pitchDegrees > 0.00f && rollDegrees > 0) {// LandScape Camera Right side
-                            //Front View PushUp
+                        if (pitchDegrees > 0.00f && rollDegrees > 0) {
                             if (Angle1 <= 45) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -143,21 +199,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            //                        } //else if (View_selection == 2) { ///Side view
-                            //                        if (Angle1 <= 135) {
-                            //                            if (rep == 0) {
-                            //                                repCount += .5f
-                            //                                rep = 1
-                            //                            }
-                            //                        } else if (Angle1 >= 135) {
-                            //                            if (rep == 1) {
-                            //                                repCount += 0.5f
-                            //                                rep = 0
-                            //                            }
-                            //                        }
-                            //                    }
-                            RepCount = repCount.toInt() // 0
-                        } else if (pitchDegrees < 0 && rollDegrees < 0) {// Portrait
+                            RepCount = repCount.toInt()
+                        } else if (pitchDegrees < 0 && rollDegrees < 0) {
                             if (Angle1 >= 45) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -169,8 +212,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            RepCount = repCount.toInt() // 1
-                        } else if (pitchDegrees > 0 && pitchDegrees < 5 && rollDegrees < 0) { // LandScape Camera Left Side
+                            RepCount = repCount.toInt()
+                        } else if (pitchDegrees > 0 && pitchDegrees < 5 && rollDegrees < 0) {
                             if (Angle1 >= 135) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -182,8 +225,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            RepCount = repCount.toInt()// 2
-                        } else if (pitchDegrees > 10 && rollDegrees < 0) {// Inverse Portrait
+                            RepCount = repCount.toInt()
+                        } else if (pitchDegrees > 10 && rollDegrees < 0) {
                             if (Angle1 <= 135) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -195,16 +238,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            RepCount = repCount.toInt()// 3
+                            RepCount = repCount.toInt()
                         }
-
-                        // Update the rotation value on the TextView
                         rotationTextView.text = "Rep $RepCount"
                     }
-                }else if (excerise_selection == 2) {
+                } else if (excerise_selection == 2) {
                     if (View_selection == 1) {
-                        if (pitchDegrees > 0.00f && rollDegrees > 0) {// LandScape Camera Right side
-                            //Front View PushUp
+                        if (pitchDegrees > 0.00f && rollDegrees > 0) {
                             if (HipAngle <= 45) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -216,21 +256,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            //                        } //else if (View_selection == 2) { ///Side view
-                            //                        if (Angle1 <= 135) {
-                            //                            if (rep == 0) {
-                            //                                repCount += .5f
-                            //                                rep = 1
-                            //                            }
-                            //                        } else if (Angle1 >= 135) {
-                            //                            if (rep == 1) {
-                            //                                repCount += 0.5f
-                            //                                rep = 0
-                            //                            }
-                            //                        }
-                            //                    }
-                            RepCount = repCount.toInt() // 0
-                        } else if (pitchDegrees < 0 && rollDegrees < 0) {// Portrait
+                            RepCount = repCount.toInt()
+                        } else if (pitchDegrees < 0 && rollDegrees < 0) {
                             if (HipAngle >= 45) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -242,8 +269,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            RepCount = repCount.toInt() // 1
-                        } else if (pitchDegrees > 0 && pitchDegrees < 5 && rollDegrees < 0) { // LandScape Camera Left Side
+                            RepCount = repCount.toInt()
+                        } else if (pitchDegrees > 0 && pitchDegrees < 5 && rollDegrees < 0) {
                             if (HipAngle >= 135) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -255,8 +282,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            RepCount = repCount.toInt()// 2
-                        } else if (pitchDegrees > 10 && rollDegrees < 0) {// Inverse Portrait
+                            RepCount = repCount.toInt()
+                        } else if (pitchDegrees > 10 && rollDegrees < 0) {
                             if (HipAngle <= 135) {
                                 if (rep == 0) {
                                     repCount += .5f
@@ -268,43 +295,30 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                     rep = 0
                                 }
                             }
-                            RepCount = repCount.toInt()// 3
+                            RepCount = repCount.toInt()
                         }
-
-                        // Update the rotation value on the TextView
                         rotationTextView.text = "Rep $RepCount"
                     }
                 }
             }
-//            if(Start == true)
-//            {
-//                setrepCount(0f)
-//            }
-
         }
     }
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
-        // Do nothing
     }
 
     override fun onBackPressed() {
-        finish()
+        showExitDialog()
     }
     fun Start(view: View?) {
-//        RepCount = 0
         setStart(!getStart())
         val b = view as Button
-        if(Start == true)
-        {
+        if(Start) {
              b.text = "Stop"
             setrepCount(0f)
-        }
-        else
-        {
+            viewModel.setRecording(true)
+        } else {
             b.text = "Start"
-            setrepCount(0f)
+            viewModel.setRecording(false)
         }
     }
-
-
 }

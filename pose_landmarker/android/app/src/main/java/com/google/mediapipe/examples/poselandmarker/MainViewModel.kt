@@ -15,6 +15,8 @@
  */
 package com.google.mediapipe.examples.poselandmarker
 
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 
 /**
@@ -30,6 +32,7 @@ class MainViewModel : ViewModel() {
         .DEFAULT_POSE_TRACKING_CONFIDENCE
     private var _minPosePresenceConfidence: Float = PoseLandmarkerHelper
         .DEFAULT_POSE_PRESENCE_CONFIDENCE
+    private val _isRecording = MutableLiveData(false)
 
     val currentDelegate: Int get() = _delegate
     val currentModel: Int get() = _model
@@ -42,6 +45,11 @@ class MainViewModel : ViewModel() {
     val currentMinPosePresenceConfidence: Float
         get() =
             _minPosePresenceConfidence
+    val isRecording: LiveData<Boolean> get() = _isRecording
+
+    fun setRecording(recording: Boolean) {
+        _isRecording.value = recording
+    }
 
     fun setDelegate(delegate: Int) {
         _delegate = delegate
