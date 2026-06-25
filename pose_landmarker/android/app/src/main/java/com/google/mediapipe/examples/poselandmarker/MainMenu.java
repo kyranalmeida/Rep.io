@@ -1,6 +1,7 @@
 package com.google.mediapipe.examples.poselandmarker;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -10,8 +11,6 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import androidx.core.content.FileProvider;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -27,6 +26,11 @@ public class MainMenu extends AppCompatActivity {
     View noLogsText;
 
     private int totalLogs = 0;
+    
+    // Persistent session counts
+    private int sessionPushups = 0;
+    private int sessionSquats = 0;
+    private int sessionDeadlifts = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,14 +50,60 @@ public class MainMenu extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         processPendingSets();
-        updateCounts();
+        updateUI();
     }
 
     private void processPendingSets() {
         for (MainActivity.WorkoutSet set : MainActivity.getPendingSets()) {
+            if (set.getExercise() == 1) sessionPushups += set.getReps();
+            else if (set.getExercise() == 2) sessionSquats += set.getReps();
+            else if (set.getExercise() == 3) sessionDeadlifts += set.getReps();
+            
             addLogEntryFromSet(set);
         }
         MainActivity.clearPendingSets();
+    }
+
+    private void updateUI() {
+        pushupCountText.setText(String.valueOf(sessionPushups));
+        squatCountText.setText(String.valueOf(sessionSquats));
+        deadliftCountText.setText(String.valueOf(sessionDeadlifts));
+        
+        int total = sessionPushups + sessionSquats + sessionDeadlifts;
+        sessionTotalText.setText(String.valueOf(total));
+    }
+
+    public void PusUP(View view) {
+        MainActivity.setexcerise_selection(1);
+        MainActivity.setViewSelection(1); // Default to front
+        ViewSelector();
+    }
+
+    public void Squat(View view) {
+        MainActivity.setexcerise_selection(2);
+        MainActivity.setViewSelection(1);
+        ViewSelector();
+    }
+
+    public void DeadLift(View view) {
+        MainActivity.setexcerise_selection(3);
+        MainActivity.setViewSelection(1);
+        ViewSelector();
+    }
+
+    public void LogSession(View view) {
+        if (sessionPushups == 0 && sessionSquats == 0 && sessionDeadlifts == 0) {
+            Toast.makeText(this, "No reps to log!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Reset session totals after logging
+        sessionPushups = 0;
+        sessionSquats = 0;
+        sessionDeadlifts = 0;
+        updateUI();
+        
+        Toast.makeText(this, "Session Logged Successfully", Toast.LENGTH_SHORT).show();
     }
 
     private void addLogEntryFromSet(MainActivity.WorkoutSet set) {
@@ -73,7 +123,7 @@ public class MainMenu extends AppCompatActivity {
         else if (set.getExercise() == 3) exerciseName = "Deadlifts";
 
         logEntry.setText(time + " - " + exerciseName + ": " + set.getReps());
-        logEntry.setTextColor(Color.WHITE);
+        logEntry.setTextColor(Color.BLACK);
         logEntry.setTextSize(12);
         
         setRow.addView(logEntry);
@@ -81,7 +131,7 @@ public class MainMenu extends AppCompatActivity {
         if (set.getVideoPath() != null) {
             TextView watchBtn = new TextView(this);
             watchBtn.setText("  [VIEW VIDEO]");
-            watchBtn.setTextColor(Color.parseColor("#CCFF00"));
+            watchBtn.setTextColor(Color.BLUE);
             watchBtn.setTextSize(12);
             watchBtn.setOnClickListener(v -> {
                 File videoFile = new File(set.getVideoPath());
@@ -98,91 +148,8 @@ public class MainMenu extends AppCompatActivity {
         logListContainer.addView(setRow, 0);
     }
 
-    private void updateCounts() {
-        int currentReps = MainActivity.getRepCount();
-        int selection = MainActivity.getexcerise_selection();
-
-        // Update the specific exercise card
-        if (selection == 1) {
-            pushupCountText.setText(String.valueOf(currentReps));
-        } else if (selection == 2) {
-            squatCountText.setText(String.valueOf(currentReps));
-        } else if (selection == 3) {
-            deadliftCountText.setText(String.valueOf(currentReps));
-        }
-
-        // Update session total (sum of all current card counts)
-        int total = getVal(pushupCountText) + getVal(squatCountText) + getVal(deadliftCountText);
-        sessionTotalText.setText(String.valueOf(total));
-    }
-
-    private int getVal(TextView tv) {
-        try {
-            return Integer.parseInt(tv.getText().toString());
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
-    public void PusUP(View view) {
-        MainActivity.setexcerise_selection(1);
-        ViewSelector();
-    }
-
-    public void Squat(View view) {
-        MainActivity.setexcerise_selection(2);
-        ViewSelector();
-    }
-
-    public void DeadLift(View view) {
-        // Toast.makeText(this, "Feature Coming Soon", Toast.LENGTH_SHORT).show();
-        MainActivity.setexcerise_selection(3);
-        ViewSelector();
-    }
-
-    public void LogSession(View view) {
-        int p = getVal(pushupCountText);
-        int s = getVal(squatCountText);
-        int d = getVal(deadliftCountText);
-
-        if (p == 0 && s == 0 && d == 0) {
-            Toast.makeText(this, "No reps to log!", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        addLogEntry(p, s, d);
-
-        // Reset everything
-        MainActivity.resetRepCount();
-        pushupCountText.setText("0");
-        squatCountText.setText("0");
-        deadliftCountText.setText("0");
-        sessionTotalText.setText("0");
-        
-        totalLogs++;
-        logCountBadge.setText(String.valueOf(totalLogs));
-        noLogsText.setVisibility(View.GONE);
-    }
-
-    private void addLogEntry(int p, int s, int d) {
-        TextView logEntry = new TextView(this);
-        String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
-        StringBuilder sb = new StringBuilder();
-        sb.append(time).append(" - ");
-        if (p > 0) sb.append("Push-ups: ").append(p).append("  ");
-        if (s > 0) sb.append("Squats: ").append(s).append("  ");
-        if (d > 0) sb.append("Deadlifts: ").append(d);
-        
-        logEntry.setText(sb.toString());
-        logEntry.setTextColor(Color.WHITE);
-        logEntry.setTextSize(12);
-        logEntry.setPadding(0, 8, 0, 8);
-        
-        logListContainer.addView(logEntry, 0); // Add at top
-    }
-
     public void ViewSelector() {
-        Intent intent = new Intent(this, ViewSelection.class);
+        Intent intent = new Intent(this, MainActivity.class);
         startActivity(intent);
     }
 }

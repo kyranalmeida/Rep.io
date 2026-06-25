@@ -2,6 +2,7 @@
 package com.google.mediapipe.examples.poselandmarker
 
 import android.content.Context
+import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -28,6 +29,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var pitchDegrees: Float = 0.0f
     private var rollDegrees: Float = 0.0f
     private lateinit var rotationTextView: TextView
+    private lateinit var exerciseTitle: TextView
+    private lateinit var btnFront: TextView
+    private lateinit var btnSide: TextView
+    private lateinit var instructionText: TextView
+
      var Angle1: Int = 0
      var Angle2: Int = 0
     var HipAngle: Int = 0
@@ -38,8 +44,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     companion object {
         @JvmStatic
-        private var View_selection: Int = 0
-        private  var excerise_selection: Int = 0
+        private var View_selection: Int = 1
+        private  var excerise_selection: Int = 1
         private var repCount: Float = 0f
         private var Start: Boolean = false
         private var lastVideoPath: String? = null
@@ -130,20 +136,67 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         rotationTextView = findViewById(R.id.textView6)
+        exerciseTitle = findViewById(R.id.exercise_title)
+        btnFront = findViewById(R.id.btn_front)
+        btnSide = findViewById(R.id.btn_side)
+        instructionText = findViewById(R.id.instruction_text)
 
-        // Start rotation detection when the app starts
+        updateExerciseUI()
+
+        btnFront.setOnClickListener {
+            setViewSelection(1)
+            updateViewToggleUI()
+        }
+
+        btnSide.setOnClickListener {
+            setViewSelection(2)
+            updateViewToggleUI()
+        }
+
         startDetection()
 
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.fragment_container) as NavHostFragment
         val navController = navHostFragment.navController
-        activityMainBinding.navigation.setupWithNavController(navController)
-        activityMainBinding.navigation.setOnNavigationItemReselectedListener {
-            // Ignore the reselection
-        }
-
+        
         findViewById<View>(R.id.back_btn).setOnClickListener {
             showExitDialog()
+        }
+
+        // Start detection immediately when screen opens
+        Start(findViewById(R.id.StartBtn))
+    }
+
+    private fun updateExerciseUI() {
+        val title = when(getexcerise_selection()) {
+            1 -> "Push-Ups"
+            2 -> "Squats"
+            3 -> "Deadlifts"
+            else -> "Workout"
+        }
+        exerciseTitle.text = title
+        updateViewToggleUI()
+    }
+
+    private fun updateViewToggleUI() {
+        if (getViewSelection() == 1) {
+            btnFront.setBackgroundResource(R.drawable.mybutton)
+            btnFront.backgroundTintList = getColorStateList(R.color.rep_lime_light)
+            btnFront.setTextColor(Color.BLACK)
+            
+            btnSide.setBackgroundResource(0)
+            btnSide.setTextColor(Color.WHITE)
+            
+            instructionText.text = "Face the camera. Keep your body parallel to the floor."
+        } else {
+            btnSide.setBackgroundResource(R.drawable.mybutton)
+            btnSide.backgroundTintList = getColorStateList(R.color.rep_lime_light)
+            btnSide.setTextColor(Color.BLACK)
+            
+            btnFront.setBackgroundResource(0)
+            btnFront.setTextColor(Color.WHITE)
+            
+            instructionText.text = "Place phone to your side. Full arm range of motion."
         }
     }
 
@@ -151,12 +204,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         AlertDialog.Builder(this)
             .setMessage("Are you sure you want to go back? Your progress would not be saved.")
             .setPositiveButton("Save Workout") { _, _ ->
-                finish()
+                finishWorkout()
             }
             .setNegativeButton("Cancel") { dialog, _ ->
                 dialog.dismiss()
             }
             .show()
+    }
+
+    private fun finishWorkout() {
+        if (getStart()) {
+            setStart(false)
+            viewModel.setRecording(false)
+        }
+        finish()
     }
 
     override fun onDestroy() {
@@ -240,7 +301,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                             }
                             RepCount = repCount.toInt()
                         }
-                        rotationTextView.text = "Rep $RepCount"
+                        rotationTextView.text = "$RepCount"
                     }
                 } else if (excerise_selection == 2) {
                     if (View_selection == 1) {
@@ -297,7 +358,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                             }
                             RepCount = repCount.toInt()
                         }
-                        rotationTextView.text = "Rep $RepCount"
+                        rotationTextView.text = "$RepCount"
                     }
                 }
             }
@@ -311,14 +372,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
     fun Start(view: View?) {
         setStart(!getStart())
-        val b = view as Button
         if(Start) {
-             b.text = "Stop"
             setrepCount(0f)
             viewModel.setRecording(true)
+            if (view is Button) view.text = "DONE"
         } else {
-            b.text = "Start"
             viewModel.setRecording(false)
+            finishWorkout()
         }
     }
 }
